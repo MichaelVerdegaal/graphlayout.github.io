@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Layout Algorithms — A Practical Course</title>
+<style>
+:root{
+  --bg:#fbf7ef; --surface:#fffdf8; --text:#231f1a; --muted:#766f66;
+  --border:#e8ded0; --primary:#2d2924; --accent:#c2410c; --success:#15803d;
+  --warning:#b45309; --radius:8px;
+  --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
+  -webkit-font-smoothing:antialiased;font-size:15.5px}
+#app{display:grid;grid-template-columns:288px 1fr;min-height:100vh}
+
+/* sidebar */
+#sidebar{background:var(--surface);border-right:1px solid var(--border);padding:22px 18px;
+  position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;gap:11px;align-items:center}
+.brand-mark{width:38px;height:38px;border-radius:10px;background:var(--primary);color:#fbf7ef;
+  display:grid;place-items:center;font-size:20px;flex:none}
+.brand-title{font-weight:700;font-size:15px;letter-spacing:-0.01em}
+.brand-sub{font-size:12px;color:var(--muted)}
+.progress-wrap{display:flex;flex-direction:column;gap:6px}
+.progress-label{font-size:12px;color:var(--muted);font-weight:600}
+.progress-track{height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .35s ease}
+#lesson-nav{display:flex;flex-direction:column;gap:4px;flex:1}
+.nav-item{display:flex;gap:10px;align-items:flex-start;text-align:left;background:none;border:none;
+  padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text);font-family:inherit;
+  font-size:13.5px;line-height:1.35;transition:background .15s}
+.nav-item:hover{background:var(--bg)}
+.nav-item.active{background:#f4ebdc}
+.nav-num{font-family:var(--mono);font-size:11px;color:var(--muted);width:34px;flex:none;padding-top:1px}
+.nav-item.active .nav-num{color:var(--accent);font-weight:700}
+.nav-title{font-weight:600;letter-spacing:-0.01em}
+.nav-check{margin-left:auto;color:var(--success);font-size:13px;opacity:0;flex:none}
+.nav-item.done .nav-check{opacity:1}
+.ghost-btn{background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px;
+  cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:600}
+.ghost-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* reader */
+#reader{padding:40px 48px 80px;max-width:860px}
+.panel.hidden{display:none}
+.kicker{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);
+  font-weight:700;margin:0 0 8px}
+h1{font-size:30px;line-height:1.18;letter-spacing:-0.02em;margin:0 0 14px}
+.lede{font-size:17px;color:#413b34;margin:0 0 26px;max-width:64ch}
+.primary-btn{background:var(--primary);color:#fbf7ef;border:none;border-radius:var(--radius);
+  padding:12px 22px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.primary-btn:hover{background:#1c1916}
+
+/* overview cards */
+.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:30px}
+.ov-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px 16px}
+.ov-card .ovn{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700}
+.ov-card h3{margin:5px 0 5px;font-size:15px;letter-spacing:-0.01em}
+.ov-card p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+
+/* lesson body */
+.lesson-head{border-bottom:1px solid var(--border);padding-bottom:18px;margin-bottom:24px}
+.lesson-eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px}
+.lesson-goal{color:var(--muted);font-size:15px;margin-top:8px}
+.block{margin:0 0 24px}
+.block h2{font-size:19px;letter-spacing:-0.01em;margin:0 0 10px;display:flex;align-items:center;gap:9px}
+.block h2 .dot{width:7px;height:7px;border-radius:99px;background:var(--accent);flex:none}
+.block p{margin:0 0 12px}
+.block ul{margin:0 0 12px;padding-left:20px}
+.block li{margin:0 0 6px}
+/* inline code only — explicitly NOT inside pre */
+.lesson-body :not(pre) > code{font-family:var(--mono);font-size:13px;background:#f3ead9;
+  color:#5b3a1e;padding:1.5px 5px;border-radius:4px}
+pre{background:#1e1b18;color:#e9e1d4;border-radius:var(--radius);padding:16px 18px;overflow-x:auto;
+  font-family:var(--mono);font-size:13px;line-height:1.6;margin:0 0 16px;border:1px solid #332d27}
+pre code{background:transparent !important;padding:0;color:#e9e1d4;font-size:13px;display:block}
+/* lightweight syntax tokens applied in script.js */
+pre .tok-kw{color:#e8915b}        /* keywords: def, for, if, return, import */
+pre .tok-fn{color:#9ecbff}        /* function names */
+pre .tok-str{color:#b5cea8}       /* strings */
+pre .tok-num{color:#d4a0e0}       /* numbers */
+pre .tok-com{color:#8a8178;font-style:italic}  /* comments */
+.callout{background:#fdf4e8;border:1px solid #f0dcc0;border-left:3px solid var(--accent);
+  border-radius:var(--radius);padding:13px 16px;margin:0 0 20px;font-size:14px}
+.callout strong{color:var(--accent)}
+.math-note{background:#f1f5f0;border:1px solid #d9e6d6;border-left:3px solid var(--success);
+  border-radius:var(--radius);padding:13px 16px;margin:0 0 20px;font-size:14px}
+.math-note .tag{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--success);
+  font-weight:700;display:block;margin-bottom:4px}
+
+/* objectives */
+.objectives{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin:0 0 26px}
+.objectives .obj-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  color:var(--muted);margin-bottom:9px}
+.objectives ul{margin:0;padding-left:19px}
+.objectives li{margin-bottom:5px;font-size:14px}
+
+/* flashcards */
+.section-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  color:var(--muted);margin:30px 0 12px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.flip{background:none;border:none;padding:0;cursor:pointer;font-family:inherit;perspective:1000px;height:128px}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.flip.flipped .flip-inner{transform:rotateY(180deg)}
+.flip-face{position:absolute;inset:0;backface-visibility:hidden;border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 15px;display:flex;flex-direction:column;justify-content:center;
+  text-align:left}
+.flip-front{background:var(--surface)}
+.flip-back{background:#f4ebdc;transform:rotateY(180deg)}
+.flip-q{font-weight:600;font-size:14px;letter-spacing:-0.01em}
+.flip-hint{font-size:11px;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
+.flip-a{font-size:13.5px;line-height:1.5}
+
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px 20px;margin:14px 0}
+.quiz-q{font-weight:600;margin-bottom:13px;letter-spacing:-0.01em}
+.quiz-opts{display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+  padding:11px 13px;cursor:pointer;font-family:inherit;font-size:14px;color:var(--text);transition:.15s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.correct{background:#eaf6ea;border-color:var(--success);color:#14532d}
+.opt.wrong{background:#fbeaea;border-color:#b91c1c;color:#7f1d1d}
+.quiz-fb{margin-top:12px;font-size:13.5px;padding:10px 13px;border-radius:var(--radius);display:none}
+.quiz-fb.show{display:block}
+.quiz-fb.ok{background:#eaf6ea;color:#14532d}
+.quiz-fb.no{background:#fdf0e8;color:#9a3412}
+
+/* sources */
+.sources{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.src-card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 14px;text-decoration:none;color:var(--text);transition:.15s}
+.src-card:hover{border-color:var(--accent)}
+.src-card .src-name{font-weight:600;font-size:13.5px;letter-spacing:-0.01em}
+.src-card .src-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.src-card .src-link{font-size:11px;color:var(--accent);margin-top:6px;font-family:var(--mono);word-break:break-all}
+
+/* lesson footer nav */
+.lesson-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  border-top:1px solid var(--border);margin-top:36px;padding-top:20px}
+.nav-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px 16px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--text)}
+.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.nav-btn:disabled{opacity:.4;cursor:default}
+.nav-btn.done-btn{background:var(--primary);color:#fbf7ef;border-color:var(--primary)}
+.nav-btn.done-btn:hover{background:#1c1916;color:#fbf7ef}
+
+/* review */
+.review-score{font-size:46px;font-weight:700;letter-spacing:-0.02em}
+.review-score small{font-size:18px;color:var(--muted);font-weight:500}
+
+@media(max-width:880px){
+  #app{grid-template-columns:1fr}
+  #sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+  #reader{padding:26px 20px 60px}
+  .overview-grid,.cards,.sources{grid-template-columns:1fr}
+  h1{font-size:25px}
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">⬡</div>
+      <div class="brand-text">
+        <div class="brand-title">Graph Layout Algorithms</div>
+        <div class="brand-sub">8 lessons · for engineers</div>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label"><span id="progress-count">0</span> / 8 done</div>
+      <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+    </div>
+    <nav id="lesson-nav"></nav>
+    <button id="overview-btn" class="ghost-btn">Course overview</button>
+  </aside>
+
+  <main id="reader">
+    <section id="overview" class="panel">
+      <p class="kicker">Course overview</p>
+      <h1>Graph layout algorithms, the practical way</h1>
+      <p class="lede">Five layout algorithms — tree, circular, fractal, simulated annealing, and Fruchterman-Reingold — taught from an algorithms-and-Python angle, plus a lesson on how to animate any of them from a random scatter to the final layout. Maths shows up only where it earns its place. Each lesson has objectives, worked intuition, flashcards, and a knowledge check.</p>
+      <div class="overview-grid" id="overview-grid"></div>
+      <button id="start-btn" class="primary-btn">Start learning →</button>
+    </section>
+
+    <section id="lesson-view" class="panel hidden"></section>
+
+    <section id="review-view" class="panel hidden"></section>
+  </main>
+</div>
+<script>
+"use strict";
+
+/* ============================================================
+   COURSE DATA
+   Bodies use template literals so apostrophes are always safe.
+   ============================================================ */
+const COURSE = [
+  {
+    id: "foundations",
+    title: "Foundations: what a layout actually computes",
+    goal: "Frame the whole problem before touching any single algorithm.",
+    objectives: [
+      "State what input a layout takes and what it produces.",
+      "Name the main aesthetic criteria and why they conflict.",
+      "Recognize the four algorithm families these five layouts fall into."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The one-sentence definition</h2>
+<p>A graph layout algorithm takes an abstract graph <code>G = (V, E)</code> — just nodes and which nodes connect — and assigns every node an <code>(x, y)</code> coordinate. That is the entire job. Edges are then drawn as whatever the layout decides (straight lines, arcs, splines). Everything else is about doing this <em>well</em>.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>"Well" means aesthetic criteria</h2>
+<p>The graph drawing field measures quality with a handful of criteria. The ones that matter most for you:</p>
+<ul>
+<li><strong>Edge crossings</strong> — fewer is better. This is the single criterion that most hurts readability when violated.</li>
+<li><strong>Edge length / uniformity</strong> — short, roughly equal-length edges read more cleanly than a mix of tiny and huge ones.</li>
+<li><strong>Node distribution</strong> — nodes spread evenly, not clumped or overlapping.</li>
+<li><strong>Symmetry</strong> — when the graph has symmetry, showing it helps comprehension.</li>
+<li><strong>Area / aspect ratio</strong> — the drawing should fit a sensible bounding box.</li>
+</ul>
+<div class="callout"><strong>The catch:</strong> you generally cannot optimize two of these at once. Minimizing crossings can stretch edges; minimizing edge length can create crossings. Every algorithm here is really a stance on <em>which</em> criteria to favor.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Four families (this whole course in one map)</h2>
+<ul>
+<li><strong>Structural / hierarchical</strong> — exploit known structure (a root, layers). Fast, deterministic. → <em>Tree layout</em>.</li>
+<li><strong>Constraint-based geometric</strong> — pin nodes onto a fixed shape. → <em>Circular layout</em>, and the recursive <em>Fractal layout</em>.</li>
+<li><strong>Optimization / metaheuristic</strong> — define a cost function, search for a low-cost arrangement. → <em>Simulated annealing (Anneal)</em>.</li>
+<li><strong>Force-directed / physics simulation</strong> — model nodes and edges as physical objects, let them settle. → <em>Fruchterman-Reingold</em>.</li>
+</ul>
+<p>Notice the last two are cousins: both minimize an energy, but annealing searches combinatorially with random jumps while force-directed follows the physics gradient downhill.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>How we will judge each one</h2>
+<p>For every algorithm, hold four questions in mind: <strong>What structure does it assume?</strong> <strong>What does it optimize?</strong> <strong>How does it scale?</strong> <strong>When would you actually reach for it?</strong> By the last lesson you will be able to fill this table from memory.</p>
+</div>
+`,
+    cards: [
+      { q: "What is the literal output of any graph layout algorithm?", a: "An (x, y) coordinate for every node. Edge rendering follows from those positions." },
+      { q: "Which aesthetic criterion most damages readability when ignored?", a: "Edge crossings — Purchase's user studies found it the most impactful negative factor." },
+      { q: "Why can't a layout optimize all criteria at once?", a: "They conflict: e.g. shortening edges can force crossings, and reducing crossings can stretch edges. Each algorithm picks a tradeoff." }
+    ],
+    quiz: [
+      {
+        q: "A layout that places nodes on a circle is best described as which family?",
+        opts: ["Force-directed", "Constraint-based geometric", "Hierarchical", "Optimization metaheuristic"],
+        correct: 1,
+        fb: "Right — it constrains nodes onto a fixed geometric shape (the circle), then only chooses their order."
+      }
+    ],
+    sources: [
+      { name: "Graph Drawing Tutorial (Cruz & Tamassia)", meta: "Aesthetic criteria, conventions, complexity", url: "https://cs.brown.edu/people/rtamassi/papers/gd-tutorial/gd-constraints.pdf" },
+      { name: "Mastering Graph Layout (overview)", meta: "Family taxonomy refresher", url: "https://www.numberanalytics.com/blog/mastering-graph-layout-algorithmic-graph-theory" }
+    ]
+  },
+
+  {
+    id: "tree",
+    title: "Tree layout",
+    goal: "Draw rooted hierarchies cleanly in linear time.",
+    objectives: [
+      "Explain the two-coordinate idea: depth sets y, traversal order sets x.",
+      "Describe the Reingold-Tilford improvement over naive placement.",
+      "Implement a simple tree layout and know its limits."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The assumption that makes it easy</h2>
+<p>Tree layout assumes you have a <strong>rooted tree</strong>: one designated root, every other node has exactly one parent, no cycles. Org charts, file systems, DOM trees, taxonomies. Because the structure is already a hierarchy, you do not need to <em>search</em> for a good layout — you can compute one directly.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The naive version (and why it is almost right)</h2>
+<p>The simplest correct idea uses two numbers per node:</p>
+<ul>
+<li><strong>y = depth</strong> — distance from the root. The root is at the top; each level steps down. This guarantees parents sit above children and edges all flow one direction.</li>
+<li><strong>x = in-order position</strong> — walk the tree left to right; the order you visit leaves becomes their horizontal slots.</li>
+</ul>
+<p>This already produces a planar, upward, level-aligned drawing. The problem: parents are not always centered nicely over their children, and the drawing can get unnecessarily wide.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Reingold-Tilford: the fix everyone uses</h2>
+<p>The classic improvement (Reingold &amp; Tilford, 1981) is recursive and intuitive:</p>
+<ul>
+<li>Lay out the left subtree and the right subtree <em>independently</em>.</li>
+<li>Slide them together until they are as close as possible without overlapping (you track the left and right "contours" of each subtree to do this in linear time).</li>
+<li>Place the parent centered between its children, one level up.</li>
+</ul>
+<p>The payoff: subtrees that are structurally identical get drawn identically, symmetry shows up, and width stays small. It runs in <code>O(n)</code>.</p>
+<div class="math-note"><span class="tag">Maths, kept light</span>The only "math" is contour tracking: for each subtree you remember the x-position of its leftmost and rightmost node at each depth. To merge two subtrees you push them apart by the largest overlap found across shared depths. No trigonometry, no linear algebra — just comparisons.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Minimal Python sketch</h2>
+<p>Naive version first, since it is what you would reach for when "good enough" beats "optimal":</p>
+<pre><code>def layout_tree(root):
+    positions = {}
+    counter = [0]  # next free x slot
+
+    def walk(node, depth):
+        for child in node.children:
+            walk(child, depth + 1)
+        if node.children:
+            xs = [positions[c][0] for c in node.children]
+            x = sum(xs) / len(xs)        # center over children
+        else:
+            x = counter[0]              # leaf takes next slot
+            counter[0] += 1
+        positions[node] = (x, depth)
+
+    walk(root, 0)
+    return positions</code></pre>
+<p>This centers parents over children and gives leaves sequential slots — a respectable result in a dozen lines. Reingold-Tilford replaces the leaf-slotting with contour-based subtree merging.</p>
+</div>
+
+<div class="callout"><strong>When to reach for it:</strong> any time the data is genuinely a hierarchy. It is fast, deterministic, and stable (small data changes cause small layout changes). It is the wrong tool the moment your graph has cycles or a node with two parents — then it is no longer a tree.</div>
+
+<div class="block">
+<h2><span class="dot"></span>Beyond binary trees</h2>
+<p>The naive sketch above already handles arbitrary numbers of children (it averages over all of them). Reingold-Tilford was originally stated for binary trees; the standard generalization (Walker's algorithm, later corrected by Buchheim et al. to run in true <code>O(n)</code>) extends the contour-merging idea to n-ary trees. For your purposes the takeaway is: the averaging-and-contour approach scales to any branching factor without changing the core idea.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Animating it</h2>
+<p>Tree layout is <strong>one-shot</strong>: it computes final positions in a single <code>O(n)</code> pass, so there is no natural "intermediate state" to animate through. To animate it, use the <strong>precompute-then-interpolate</strong> pattern (covered in depth in the animation lesson): compute the target positions once, then tween each node from its start position to its target over a fixed duration. Because the layout is so cheap, precomputing costs nothing — this is the ideal case for tweening. A nice touch for trees: stagger the tween start time by depth, so the animation visibly "grows" from the root outward.</p>
+</div>`,
+    cards: [
+      { q: "In tree layout, what determines a node's y-coordinate?", a: "Its depth — distance from the root. Equal-depth nodes share a horizontal level." },
+      { q: "What does Reingold-Tilford do better than naive tree layout?", a: "It merges subtrees as tightly as possible using contour tracking, giving smaller width, centered parents, and visible symmetry — all in O(n)." },
+      { q: "When does tree layout stop being applicable?", a: "As soon as the graph has a cycle or any node with more than one parent. It is then no longer a rooted tree." }
+    ],
+    quiz: [
+      {
+        q: "Why does Reingold-Tilford track the 'contour' of each subtree?",
+        opts: [
+          "To count edge crossings",
+          "To slide sibling subtrees as close as possible without overlap, in linear time",
+          "To compute the energy of the layout",
+          "To assign nodes to a circle"
+        ],
+        correct: 1,
+        fb: "Correct — the left/right contours let it find the minimum non-overlapping gap between subtrees cheaply."
+      }
+    ],
+    sources: [
+      { name: "Graph Drawing Tutorial — Trees section", meta: "Reingold-Tilford, level drawings, area bounds", url: "https://cs.brown.edu/people/rtamassi/papers/gd-tutorial/gd-constraints.pdf" },
+      { name: "MindFusion — Tree & Radial layouts", meta: "Practical variants catalog", url: "https://mindfusion.dev/graph-layout.html" }
+    ]
+  },
+
+  {
+    id: "circular",
+    title: "Circular layout",
+    goal: "Place every node on a circle, then fight the resulting clutter.",
+    objectives: [
+      "Understand why ordering is the only real decision in a circular layout.",
+      "Explain the three clutter-reduction tricks: ordering, exterior routing, bundling.",
+      "Know what circular layouts are good and bad at."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The fixed-shape idea</h2>
+<p>Circular layout puts all nodes on the perimeter of a circle, evenly spaced. The appeal: no node can be hidden behind another, no three nodes are ever collinear, and ring/star topologies show up beautifully. Once you commit to "everyone on the circle, evenly spaced," node <em>positions</em> are fixed. The only thing left to choose is the <strong>order</strong> nodes go around.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Why ordering is the whole game</h2>
+<p>Edges are chords across the circle. Two edges cross if and only if their endpoints interleave around the ring. So the entire crossing count — and how long/cluttered the chords are — depends purely on the circular order. Finding the order with the fewest crossings is NP-hard, so real algorithms use heuristics.</p>
+<div class="math-note"><span class="tag">Maths, kept light</span>A clean heuristic (Gansner &amp; Koren): repeatedly move each node to the average angular position of its neighbors, then snap it back onto the circle. Shorter chords mean fewer crossings. You periodically re-space nodes evenly to stop them collapsing into one spot. That is the entire idea — an averaging loop, not heavy algebra.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Three tricks to cut clutter</h2>
+<p>A dense circular layout is a hairball. The improvements come in layers:</p>
+<ul>
+<li><strong>1. Better ordering</strong> — shorten edges via the neighbor-averaging heuristic above. Fewer, shorter chords.</li>
+<li><strong>2. Exterior routing</strong> — pull selected edges <em>outside</em> the circle and route them around the rim. Two edges cross outside exactly when they would cross inside, so moving non-crossing sets out relieves the interior. This was the single biggest crossing-reducer in Gansner &amp; Koren's experiments.</li>
+<li><strong>3. Edge bundling</strong> — group edges that travel together into shared spline "cables," saving ink and making the bundle structure legible.</li>
+</ul>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Minimal Python sketch (placement is trivial)</h2>
+<pre><code>import math
+
+def circular_positions(order, radius=1.0):
+    """order: list of node ids in the chosen ring sequence."""
+    n = len(order)
+    pos = {}
+    for i, node in enumerate(order):
+        theta = 2 * math.pi * i / n
+        pos[node] = (radius * math.cos(theta),
+                     radius * math.sin(theta))
+    return pos</code></pre>
+<p>The placement is four lines. All the engineering effort goes into choosing <code>order</code> and deciding which edges to route outside or bundle.</p>
+</div>
+
+<div class="callout"><strong>When to reach for it:</strong> network/systems diagrams, social or web graphs where you want to emphasize a cluster decomposition, or anywhere "no node gets hidden" matters. Avoid it for dense graphs unless you add exterior routing and bundling, and avoid it when following individual paths is the main task.</div>
+
+<div class="block">
+<h2><span class="dot"></span>Clustered circular layouts</h2>
+<p>A common extension: group related nodes and give each cluster its own arc of the circle (or its own small circle). This keeps community structure visible. It is also the conceptual bridge to the next lesson — once you nest circles inside circles, you are most of the way to fractal layout.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Animating it</h2>
+<p>Circular layout is <strong>one-shot</strong> and the math is trivial (<code>cos</code>/<code>sin</code> per node), so it is another perfect candidate for <strong>precompute-then-interpolate</strong>. Two especially satisfying animation patterns fall out of the geometry: (1) tween in <em>polar</em> coordinates instead of Cartesian — animate each node's angle and radius separately, and nodes spiral elegantly into place from the center; (2) stagger by ring position so nodes "snap" onto the circle in sequence. Because positions are defined by angle, you can also animate a <em>reordering</em> (when you improve the node order) by tweening angles from old to new — nodes slide around the rim.</p>
+</div>`,
+    cards: [
+      { q: "In a circular layout, what is the only real decision left after fixing the circle?", a: "The order of nodes around the ring. Positions are fixed by even spacing; order determines all crossings and chord lengths." },
+      { q: "What is exterior routing and why does it help?", a: "Routing selected edges around the outside of the circle. It relieves interior density, and was the biggest single crossing-reducer in Gansner & Koren's study." },
+      { q: "What heuristic shortens edges in a circular ordering?", a: "Iteratively move each node toward the average angular position of its neighbors, snap back to the circle, and periodically re-space to avoid collapse." }
+    ],
+    quiz: [
+      {
+        q: "Two chords in a circular layout cross if and only if...",
+        opts: [
+          "Their endpoints interleave around the ring",
+          "They have the same length",
+          "Both connect to the root",
+          "They are bundled together"
+        ],
+        correct: 0,
+        fb: "Exactly — interleaving endpoints is the crossing condition, which is why ordering controls everything."
+      }
+    ],
+    sources: [
+      { name: "Improved Circular Layouts (Gansner & Koren)", meta: "Ordering, exterior routing, bundling", url: "https://graphviz.org/documentation/GK06.pdf" },
+      { name: "MindFusion — Circular layout", meta: "Even-spacing, crossing reduction in practice", url: "https://mindfusion.dev/graph-layout.html" }
+    ]
+  },
+
+  {
+    id: "fractal",
+    title: "Fractal layout",
+    goal: "Lay out hierarchies recursively, with each level circling its parent.",
+    objectives: [
+      "Describe the recursive bottom-up circular arrangement.",
+      "Contrast fractal layout with both tree and circular layouts.",
+      "Identify the kind of data where it shines."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>What it is</h2>
+<p>Fractal layout is a recursive radial method for hierarchical data. The recipe: nodes at the lowest level are arranged in a circle around their parent. Those arranged clusters become "branches" that are themselves arranged in a circle around <em>their</em> parent at the next level up. Repeat until you reach the root. The self-similar nesting — circles of circles of circles — is what makes it "fractal."</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>How it differs from what you already know</h2>
+<ul>
+<li><strong>vs. Tree layout:</strong> same input (a hierarchy) but a radial, space-filling result instead of stacked horizontal levels. Tree layout pushes width out sideways; fractal layout wraps each generation around its parent, which often packs deep, bushy trees into a more compact, circular footprint.</li>
+<li><strong>vs. Circular layout:</strong> circular layout puts <em>all</em> nodes on one big circle. Fractal layout uses <em>many small local circles</em>, one per parent, applied recursively. Circular is flat; fractal is nested.</li>
+</ul>
+<div class="callout">Think of it as: "circular layout's local trick (arrange children around a center) applied recursively up a tree." That one sentence captures the whole algorithm.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The recursion in pseudocode</h2>
+<pre><code>def fractal_layout(node, center, radius):
+    node.pos = center
+    children = node.children
+    if not children:
+        return
+    n = len(children)
+    for i, child in enumerate(children):
+        theta = 2 * math.pi * i / n
+        child_center = (center[0] + radius * math.cos(theta),
+                        center[1] + radius * math.sin(theta))
+        # shrink radius as we descend so sub-circles fit
+        fractal_layout(child, child_center, radius * 0.45)</code></pre>
+<p>The shrink factor (here <code>0.45</code>) is the one knob that matters: too large and sibling sub-circles overlap; too small and the drawing collapses inward. Production implementations size each child circle from how many descendants it contains rather than using a flat factor.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Where it shines</h2>
+<p>Deep, bushy hierarchies where a traditional top-down tree would become absurdly wide — large taxonomies, mind-map-style data, organizational structures with many siblings per node. The radial nesting uses 2D space far more evenly than horizontal levels do.</p>
+</div>
+
+<div class="callout"><strong>Caveat on naming:</strong> "Fractal layout" is mostly a product/library term (e.g. MindFusion) rather than a single canonical academic algorithm. The underlying idea — recursive radial placement of children around parents — is what to remember; exact implementations vary in how they size and rotate sub-circles.</div>
+
+<div class="block">
+<h2><span class="dot"></span>Animating it</h2>
+<p>Like tree and circular, fractal layout is <strong>one-shot</strong> → use precompute-then-interpolate. The recursion gives you a beautiful animation hook for free: tween nodes in by <strong>recursion depth</strong>. Place the root, then animate its children expanding outward into their circle, then their children, and so on. The result looks like the structure unfolding fractally — which mirrors exactly how the algorithm computed it. You already have the depth available from the recursion, so staggering by depth is a one-line change to the tween start time.</p>
+</div>`,
+    cards: [
+      { q: "What makes fractal layout 'fractal'?", a: "Self-similar recursion: children circle their parent, those clusters circle the grandparent, and so on — nested circles at every level." },
+      { q: "One-sentence relationship to circular layout?", a: "It applies circular layout's local trick (arrange children around a center) recursively up a hierarchy, using many small circles instead of one big one." },
+      { q: "What is the single most important tuning knob?", a: "The radius shrink factor per level — too large causes sibling overlap, too small collapses the drawing inward." }
+    ],
+    quiz: [
+      {
+        q: "Compared with a standard top-down tree layout, fractal layout is especially good at...",
+        opts: [
+          "Graphs with cycles",
+          "Deep, bushy hierarchies that would otherwise grow very wide",
+          "Showing edge direction in a DAG",
+          "Minimizing the number of edge crossings exactly"
+        ],
+        correct: 1,
+        fb: "Right — wrapping each generation radially around its parent packs wide, deep trees far more compactly than stacked levels."
+      }
+    ],
+    sources: [
+      { name: "MindFusion — Fractal layout", meta: "Recursive circular arrangement, level-by-level", url: "https://mindfusion.dev/graph-layout.html" }
+    ]
+  },
+
+  {
+    id: "anneal",
+    title: "Anneal layout (simulated annealing)",
+    goal: "Treat layout as cost minimization and escape bad local optima with controlled randomness.",
+    objectives: [
+      "Map the metallurgy metaphor onto graph drawing.",
+      "Describe the energy function and the accept/reject rule.",
+      "Explain why temperature and the cooling schedule matter."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The metaphor, then the mechanics</h2>
+<p>Annealing in metallurgy means cooling metal slowly so its atoms settle into a low-energy, defect-free crystal. Cool too fast and you lock in flaws. Simulated annealing borrows this: define an "energy" that measures how ugly a layout is, then make random moves that are <em>always</em> accepted if they lower energy and <em>sometimes</em> accepted if they raise it — with that "sometimes" shrinking as the system "cools." The early willingness to go uphill is what lets it escape bad local optima that a pure greedy method would get stuck in.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The energy function (Davidson &amp; Harel)</h2>
+<p>The classic graph-drawing version sums weighted penalty terms for things you dislike:</p>
+<ul>
+<li>Nodes too close together (uneven distribution).</li>
+<li>Edge lengths that are non-uniform or too long.</li>
+<li>Edge crossings.</li>
+<li>Nodes drifting too close to the drawing border.</li>
+</ul>
+<p>Each term has a weight you control, so you can dial the layout toward whichever aesthetics you care about. That tunability is the algorithm's main selling point.</p>
+<div class="math-note"><span class="tag">Maths, kept light</span>The one formula worth knowing is the acceptance rule. For a move that changes energy by <code>ΔE</code>: if <code>ΔE < 0</code> accept it; otherwise accept with probability <code>exp(-ΔE / T)</code>, where <code>T</code> is the current temperature. High <code>T</code> means even bad moves often pass; as <code>T</code> drops, only improving moves survive. That single exponential is the heart of the method.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The cooling schedule</h2>
+<p>Temperature starts high and is multiplied by a factor each round — Davidson &amp; Harel used a geometric schedule with a default factor of <strong>0.75</strong>. Slower cooling (factor closer to 1) gives better results but costs more time. After the main schedule, a fine-tuning pass makes tiny pixel-level adjustments while forbidding uphill moves, polishing the result.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Python skeleton</h2>
+<pre><code>import math, random
+
+def anneal(nodes, energy, T=1.0, cooling=0.75, rounds=30):
+    current = energy(nodes)
+    for _ in range(rounds):
+        for node in nodes:
+            old = node.pos
+            node.pos = perturb(old, T)        # small random nudge
+            new = energy(nodes)
+            dE = new - current
+            if dE < 0 or random.random() < math.exp(-dE / T):
+                current = new                  # accept
+            else:
+                node.pos = old                 # reject, revert
+        T *= cooling                           # cool down
+    return nodes</code></pre>
+<p>Everything specific to <em>graphs</em> lives in <code>energy()</code>; the annealing loop itself is generic optimization.</p>
+</div>
+
+<div class="callout"><strong>When to reach for it:</strong> small graphs (the original work was practical to roughly 30 nodes / 50 edges) where you want fine control over which aesthetics win, and you can afford slow computation. It is flexible and produces competitive layouts, but it is genuinely slow and a poor fit for interactive or large-graph use.</div>
+
+<div class="block">
+<h2><span class="dot"></span>Animating it</h2>
+<p>This is the other category — annealing is <strong>iterative</strong>, so you do <em>not</em> precompute and interpolate. You animate by rendering a frame periodically as the algorithm runs. One subtlety specific to annealing: it makes thousands of tiny accept/reject moves, and most rejected moves change nothing visually, so rendering every single move is wasteful and jittery. Render once per "temperature round" (one full sweep over all nodes) rather than per move. Because annealing also accepts uphill moves early on, the animation will visibly "shake" at high temperature and gradually calm as it cools — which is a genuinely nice illustration of what the algorithm is doing, but can look chaotic. If you want a smoother reveal, fall back to precompute-then-interpolate to the final state.</p>
+</div>`,
+    cards: [
+      { q: "What does simulated annealing's 'temperature' control?", a: "The probability of accepting a worse (higher-energy) layout. High T accepts many bad moves to escape local optima; low T accepts almost only improvements." },
+      { q: "State the acceptance rule.", a: "If energy change ΔE < 0, always accept. Otherwise accept with probability exp(-ΔE / T)." },
+      { q: "What is the practical size limit and main weakness?", a: "Roughly tens of nodes (the original was practical near 30 nodes / 50 edges). The main weakness is that it is slow — bad for interactive or large graphs." }
+    ],
+    quiz: [
+      {
+        q: "Why does simulated annealing sometimes accept a layout that is WORSE than the current one?",
+        opts: [
+          "To save memory",
+          "To escape local optima that pure greedy descent would get stuck in",
+          "Because the energy function is random",
+          "To guarantee zero edge crossings"
+        ],
+        correct: 1,
+        fb: "Correct — controlled uphill moves early on (high temperature) let it climb out of bad local minima before settling."
+      }
+    ],
+    sources: [
+      { name: "Drawing Graphs Nicely Using Simulated Annealing", meta: "Davidson & Harel, ACM ToG 1996 — energy terms, 0.75 cooling", url: "https://dl.acm.org/doi/pdf/10.1145/234535.234538" },
+      { name: "MindFusion — Anneal layout", meta: "Cost-based combinatorial layout in practice", url: "https://mindfusion.dev/graph-layout.html" }
+    ]
+  },
+
+  {
+    id: "fr",
+    title: "Fruchterman-Reingold",
+    goal: "Simulate a physical system of repelling nodes and spring edges until it settles.",
+    objectives: [
+      "State the two forces and the constant k that sets the scale.",
+      "Walk through one iteration of the simulation.",
+      "Explain temperature here vs. in annealing, and the scaling limits."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The physics model</h2>
+<p>Fruchterman-Reingold (1991) is the archetypal <strong>force-directed</strong> layout. Picture every node as a charged particle that <em>repels</em> every other node, and every edge as a <em>spring</em> that pulls its two endpoints together. Start from a random placement and let the system evolve: nodes push apart, connected nodes pull together, and the whole thing settles into an equilibrium where forces balance. That equilibrium is your layout.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The two forces and the constant k</h2>
+<p>There is one parameter that sets the natural scale: <code>k</code>, the ideal distance between nodes. Roughly, <code>k = sqrt(area / number_of_nodes)</code> — spread the nodes to fill the canvas. Then for a distance <code>d</code> between two nodes:</p>
+<div class="math-note"><span class="tag">Maths, kept light — but this is the core</span>
+<strong>Repulsion</strong> (between every pair of nodes): <code>f_rep = k² / d</code>. Closer nodes shove apart harder.<br><br>
+<strong>Attraction</strong> (along each edge): <code>f_attr = d² / k</code>. Longer edges pull harder.<br><br>
+That is the entire model. Repulsion stops clumping and overlap; attraction keeps connected nodes near each other; <code>k</code> sets the equilibrium spacing where they balance.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>One iteration, step by step</h2>
+<ul>
+<li>For every <em>pair</em> of nodes, compute repulsive force and add it to each node's displacement vector. (This pairwise step is the expensive part: <code>O(V²)</code>.)</li>
+<li>For every <em>edge</em>, compute attractive force and adjust both endpoints' displacements.</li>
+<li>Move each node along its accumulated displacement, but <strong>cap the step by the current temperature</strong> so nodes cannot teleport across the canvas.</li>
+<li>Cool the temperature slightly and repeat for a fixed number of iterations (≈50 is a common default).</li>
+</ul>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Temperature here vs. annealing</h2>
+<p>Both use a cooling "temperature," but they mean different things. In <em>annealing</em>, temperature is a <em>probability</em> of accepting bad moves. In <em>Fruchterman-Reingold</em>, temperature is just a <em>maximum step size</em> — it limits how far a node can move per iteration, large early (coarse arrangement) and small later (gentle settling). FR always moves downhill along the force; it never accepts a worse state on purpose.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Python skeleton</h2>
+<pre><code>import math
+
+def fruchterman_reingold(nodes, edges, W, H, iters=50):
+    area = W * H
+    k = math.sqrt(area / len(nodes))
+    t = W / 10.0                      # initial max step (temperature)
+
+    for _ in range(iters):
+        disp = {n: [0.0, 0.0] for n in nodes}
+
+        # repulsion: every pair pushes apart
+        for v in nodes:
+            for u in nodes:
+                if u is v: continue
+                dx, dy = v.x - u.x, v.y - u.y
+                dist = math.hypot(dx, dy) or 0.01
+                force = (k * k) / dist
+                disp[v][0] += (dx / dist) * force
+                disp[v][1] += (dy / dist) * force
+
+        # attraction: every edge pulls together
+        for a, b in edges:
+            dx, dy = a.x - b.x, a.y - b.y
+            dist = math.hypot(dx, dy) or 0.01
+            force = (dist * dist) / k
+            ox, oy = (dx / dist) * force, (dy / dist) * force
+            disp[a][0] -= ox; disp[a][1] -= oy
+            disp[b][0] += ox; disp[b][1] += oy
+
+        # move, capped by temperature t
+        for v in nodes:
+            dx, dy = disp[v]
+            d = math.hypot(dx, dy) or 0.01
+            v.x += (dx / d) * min(d, t)
+            v.y += (dy / d) * min(d, t)
+
+        t *= 0.95                     # cool: smaller steps over time
+    return nodes</code></pre>
+</div>
+
+<div class="callout"><strong>When to reach for it:</strong> general undirected graphs with no known structure, where you want an organic, symmetry-revealing layout. It is the default in most graph tools. The naive version is <code>O(V²)</code> per iteration, so plain FR struggles past a few thousand nodes — large-scale variants use spatial grids or Barnes-Hut quadtrees to approximate repulsion and bring it down toward <code>O(V log V)</code>.</p></div>
+
+<div class="block">
+<h2><span class="dot"></span>Animating it — this is the textbook self-animating layout</h2>
+<p>Fruchterman-Reingold is <strong>iterative</strong> and is the reason "watch the graph settle" is a familiar visual. You do not precompute — you run one iteration per animation frame and render after each. The loop in the skeleton above already produces the trajectory; you just move the <code>render()</code> call <em>inside</em> the iteration loop instead of after it. The temperature cooling does double duty: it both helps the layout converge and makes the motion naturally decelerate, so the graph eases to a stop on its own without any extra easing code. This is why your "intermediate steps" intuition is already built into the algorithm — every iteration <em>is</em> an intermediate step.</p>
+<div class="callout">Key practical point for your use case: because FR starts from a <strong>random</strong> distribution and walks to equilibrium, the random→final journey you wanted to animate is literally what FR does. For the one-shot layouts (tree/circular/fractal) you have to manufacture that journey with interpolation; for FR you get it for free.</div>
+</div>`,
+    cards: [
+      { q: "Write the two Fruchterman-Reingold forces.", a: "Repulsion between all node pairs: k²/d. Attraction along each edge: d²/k. Here d is distance and k is the ideal node spacing." },
+      { q: "What does k represent and how is it set?", a: "The ideal distance between nodes — the equilibrium spacing. Set as k = sqrt(area / n) so nodes spread to fill the canvas." },
+      { q: "How does 'temperature' differ between FR and simulated annealing?", a: "In FR it is a maximum step size per iteration (always moving downhill). In annealing it is a probability of accepting uphill/worse moves." },
+      { q: "Why does naive FR struggle on large graphs, and what fixes it?", a: "The all-pairs repulsion is O(V²) per iteration. Spatial grids or Barnes-Hut quadtree approximations reduce it toward O(V log V)." }
+    ],
+    quiz: [
+      {
+        q: "In Fruchterman-Reingold, the repulsive force between two nodes at distance d is:",
+        opts: ["d² / k", "k² / d", "exp(-d / k)", "k / d²"],
+        correct: 1,
+        fb: "Correct — repulsion is k²/d (stronger when nodes are close), while attraction along edges is d²/k."
+      },
+      {
+        q: "What is the role of the temperature schedule in FR specifically?",
+        opts: [
+          "It decides whether to accept worse layouts",
+          "It caps how far any node may move in a single iteration, shrinking over time",
+          "It sets the number of edge crossings allowed",
+          "It chooses the root of the tree"
+        ],
+        correct: 1,
+        fb: "Right — temperature is just a per-iteration max displacement: big early for coarse layout, small later for fine settling."
+      }
+    ],
+    sources: [
+      { name: "Graph Drawing by Force-Directed Placement (Fruchterman & Reingold)", meta: "The original 1991 paper", url: "https://emr.reingold.co/force-directed.pdf" },
+      { name: "Mastering Graph Layout — force-directed section", meta: "k²/d and d²/k formulas, pros/cons", url: "https://www.numberanalytics.com/blog/mastering-graph-layout-algorithmic-graph-theory" }
+    ]
+  },
+
+  {
+    id: "animation",
+    title: "Animating layouts: random → settled",
+    goal: "Go from a random scatter to the final layout smoothly, picking the right technique per algorithm.",
+    objectives: [
+      "Split the five layouts into iterative (animate live) vs one-shot (interpolate).",
+      "Write a requestAnimationFrame tween for one-shot layouts with easing.",
+      "Drive an iterative layout one step per frame, and know when each approach wins."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The core split (the answer to "is there an in-between step?")</h2>
+<p>Yes — but where the in-between comes from differs:</p>
+<ul>
+<li><strong>Iterative layouts</strong> (Fruchterman-Reingold, simulated annealing) build the result through many small steps. The in-between states <em>already exist</em> — they are the algorithm's own iterations. You animate by rendering a frame per iteration. No precomputation.</li>
+<li><strong>One-shot layouts</strong> (tree, circular, fractal) jump straight to final coordinates in a single pass. There is no natural in-between, so you <em>manufacture</em> one: precompute the target, then interpolate (tween) each node from start to target. This is your idea — and it is the correct, standard approach.</li>
+</ul>
+<div class="callout">Your worry was "precompute is bad if the calculation takes long." The resolution: the layouts you would precompute (tree/circular/fractal) are all <code>O(n)</code> and finish in well under a millisecond, so precomputing is free. The layouts that are slow to compute (annealing, large FR) are exactly the iterative ones you would <em>not</em> precompute — you animate their steps live instead. The fast/slow split lines up perfectly with the interpolate/iterate split.</div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Pattern A — interpolate (for tree, circular, fractal)</h2>
+<p>Three pieces: a start position per node, a target position (from your layout function), and a clock. Each frame, compute progress <code>t</code> from 0 to 1, apply an easing curve, and set each node to <code>start + (target - start) * eased_t</code>.</p>
+<pre><code>def lerp(a, b, t):
+    return a + (b - a) * t
+
+def ease_out_cubic(t):
+    return 1 - (1 - t) ** 3        # fast start, gentle landing
+
+# precompute once (cheap for tree/circular/fractal)
+targets = layout_circular(order)   # {node: (tx, ty)}
+starts  = {n: random_pos() for n in nodes}</code></pre>
+<p>Then the per-frame update, in JS since the animation lives in the browser:</p>
+<pre><code>function animate(starts, targets, duration, render) {
+  const t0 = performance.now();
+  function frame(now) {
+    let t = (now - t0) / duration;     // 0 -> 1
+    if (t > 1) t = 1;
+    const e = 1 - Math.pow(1 - t, 3);  // ease-out cubic
+    const pos = {};
+    for (const id in targets) {
+      const s = starts[id], g = targets[id];
+      pos[id] = [s[0] + (g[0]-s[0])*e, s[1] + (g[1]-s[1])*e];
+    }
+    render(pos);
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}</code></pre>
+<p>That is the whole technique. <code>requestAnimationFrame</code> hands you the timestamp and syncs to the display refresh (~60fps), so you never manage timers yourself. Swap the easing function to change the feel; stagger per-node start times (by depth for trees, by ring order for circular) for a sequential reveal.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Pattern B — iterate live (for FR and annealing)</h2>
+<p>Here you do not interpolate toward a known target — you let the algorithm take one step and render the result, repeating until it converges. The key is to do <em>one iteration per frame</em>, not the whole loop at once (which would block the browser and show only the final state).</p>
+<pre><code>function runLive(step, render, maxIters) {
+  let i = 0;
+  function frame() {
+    step();                 // one FR iteration OR one annealing sweep
+    render(currentPositions());
+    i += 1;
+    if (i < maxIters && !converged()) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}</code></pre>
+<p>For Fruchterman-Reingold, <code>step()</code> is one pass of the force loop from the FR lesson. The temperature cooling makes motion slow down automatically, so it eases to a stop with no extra work. For annealing, <code>step()</code> is one full temperature round (one sweep over all nodes), not one accept/reject move — rendering per move is too jittery and too frequent.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Mapping your 0-100 grid question</h2>
+<p>You asked specifically about going from a random distribution to a layout on, say, a 0-100 coordinate space. Concretely: initialize every node to a random <code>(x, y)</code> in <code>[0,100]²</code>. For a <strong>one-shot</strong> layout, that random scatter is your <code>starts</code> and the layout output (scaled into <code>[0,100]²</code>) is your <code>targets</code> — feed both to Pattern A. For <strong>FR</strong>, that random scatter is literally the algorithm's starting configuration; run Pattern B and watch it converge. Either way, normalize/scale the layout output into your <code>[0,100]²</code> box at the end (find min/max x and y, rescale) so it fits your canvas.</p>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>Two gotchas worth knowing now</h2>
+<ul>
+<li><strong>Don't recompute the target every frame.</strong> For one-shot layouts, compute targets <em>once</em> before the animation starts. Recomputing each frame is the actual performance mistake (not precomputing).</li>
+<li><strong>Edges follow nodes for free.</strong> You only ever animate node positions. Redraw each edge as a line between its two (current) endpoints every frame — no separate edge animation needed.</li>
+</ul>
+</div>
+`,
+    cards: [
+      { q: "Which layouts animate by interpolation, and which animate live?", a: "Interpolate (precompute target, tween): tree, circular, fractal — they are one-shot. Animate live (one step per frame): Fruchterman-Reingold and simulated annealing — they are iterative." },
+      { q: "Why is precomputing the target NOT a performance problem for tree/circular/fractal?", a: "Those layouts are O(n) and finish in well under a millisecond. The slow layouts (annealing, large FR) are exactly the ones you animate live instead of precomputing." },
+      { q: "What does requestAnimationFrame give you over a manual timer?", a: "A timestamp synced to the display refresh (~60fps), automatic pausing in background tabs, and no timer bookkeeping. You compute progress t from the timestamps." },
+      { q: "For an iterative layout, how much work should one animation frame do?", a: "One iteration (for FR) or one temperature sweep (for annealing) — not the whole loop (blocks the browser) and not one accept/reject move (too jittery)." }
+    ],
+    quiz: [
+      {
+        q: "You want to animate a CIRCULAR layout from a random scatter. Best approach?",
+        opts: [
+          "Run one iteration of the circular algorithm per frame",
+          "Precompute final positions once, then tween each node from its random start with easing",
+          "Recompute the full layout every frame",
+          "It cannot be animated"
+        ],
+        correct: 1,
+        fb: "Right — circular is one-shot and O(n), so precompute the target once and interpolate. Tweening in polar coordinates makes nodes spiral in nicely."
+      },
+      {
+        q: "Why does Fruchterman-Reingold NOT need the precompute-then-interpolate pattern?",
+        opts: [
+          "Because it has no final state",
+          "Because its own iterations ARE the intermediate steps — you render one per frame",
+          "Because it is O(n)",
+          "Because it ignores node positions"
+        ],
+        correct: 1,
+        fb: "Correct — FR walks from random to equilibrium through iterations, so the random-to-final journey you wanted is exactly what it computes. Render per iteration."
+      }
+    ],
+    sources: [
+      { name: "Graph Drawing by Force-Directed Placement (Fruchterman & Reingold)", meta: "Iterative trajectory + temperature cooling", url: "https://emr.reingold.co/force-directed.pdf" },
+      { name: "Drawing Graphs Nicely Using Simulated Annealing", meta: "Per-round updates, cooling schedule", url: "https://dl.acm.org/doi/pdf/10.1145/234535.234538" }
+    ]
+  },
+
+  {
+    id: "synthesis",
+    title: "Synthesis: choosing the right layout",
+    goal: "Compare all five on structure, objective, scaling, and use case — and pick correctly.",
+    objectives: [
+      "Reproduce the comparison table from memory.",
+      "Match a described dataset to the best-fit layout.",
+      "Articulate the annealing-vs-force-directed distinction crisply."
+    ],
+    body: `
+<div class="block">
+<h2><span class="dot"></span>The whole course in one table</h2>
+<pre><code>Layout        Assumes        Optimizes            Scaling        Animation       Reach for it when...
+-----------   ------------   ------------------   ------------   -------------   ----------------------------
+Tree          rooted tree    level alignment,     O(n), fast     interpolate     data is a true hierarchy
+                             symmetry, width                     (one-shot)
+Circular      nothing        crossings via        order NP-hard  interpolate     no node may be hidden;
+                             ordering             heuristic      (one-shot)      ring/star/cluster structure
+Fractal       hierarchy      compact radial       O(n)-ish       interpolate     deep, bushy hierarchies
+                             packing                             (one-shot)      too wide for a normal tree
+Anneal        nothing        weighted sum of      slow; ~tens    iterate live    small graph, want fine
+                             chosen aesthetics    of nodes       (per round)     control over aesthetics
+Fruchterman-  nothing        force equilibrium    O(V²)/iter     iterate live    general graph, want organic
+Reingold                     (repel + spring)     naive          (per iter)      symmetry-revealing result</code></pre>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>The distinction people get wrong</h2>
+<p><strong>Anneal vs. Fruchterman-Reingold</strong> both minimize a notion of energy, but:</p>
+<ul>
+<li><strong>Annealing</strong> searches combinatorially. It proposes random moves and uses a temperature-controlled <em>probability</em> to sometimes accept worse states, escaping local optima. The energy function is an explicit weighted sum of aesthetics you choose.</li>
+<li><strong>Fruchterman-Reingold</strong> follows physics. It computes force vectors and always moves downhill; its temperature merely caps step size. The "energy" is implicit in the force model (repulsion + springs).</li>
+</ul>
+<div class="callout">One-liner: <strong>annealing gambles uphill to escape traps; force-directed always rolls downhill.</strong></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>And tree vs. fractal vs. circular</h2>
+<ul>
+<li><strong>Tree:</strong> hierarchy → stacked horizontal levels. Clear depth reading.</li>
+<li><strong>Fractal:</strong> same hierarchy → nested radial circles. Compact for wide/deep trees.</li>
+<li><strong>Circular:</strong> any graph → one big ring. Order is everything; add exterior routing + bundling for density.</li>
+</ul>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>A decision shortcut</h2>
+<p>Ask one question first: <strong>does the data have known structure?</strong> If it is a hierarchy, use tree (clarity) or fractal (compactness). If not, you are choosing among circular (when no-occlusion or cluster emphasis matters), FR (general-purpose default), or annealing (tiny graph, want to hand-tune aesthetics). Scale is the tiebreaker: large graphs rule out naive annealing and naive FR alike.</p>
+</div>
+`,
+    cards: [
+      { q: "Annealing vs. Fruchterman-Reingold in one line?", a: "Annealing gambles uphill (probabilistic accept of worse states) to escape traps; force-directed always rolls downhill along force vectors." },
+      { q: "First question to ask when choosing a layout?", a: "Does the data have known structure? Hierarchy → tree or fractal. No structure → circular, FR, or annealing depending on goals and size." },
+      { q: "Which two algorithms here do NOT assume any input structure but DO struggle to scale naively?", a: "Simulated annealing (slow, ~tens of nodes) and Fruchterman-Reingold (O(V²) per iteration without approximation)." }
+    ],
+    quiz: [
+      {
+        q: "You have a 50,000-node social network with no hierarchy and want an organic layout. Best starting point?",
+        opts: [
+          "Tree layout",
+          "Simulated annealing as-is",
+          "Fruchterman-Reingold with a Barnes-Hut / grid approximation",
+          "Naive all-pairs Fruchterman-Reingold"
+        ],
+        correct: 2,
+        fb: "Right — FR fits unstructured organic graphs, but at 50k nodes you need a quadtree/grid approximation to avoid the O(V²) wall. Naive FR and annealing both choke at that scale."
+      },
+      {
+        q: "A deep taxonomy with many children per node renders absurdly wide as a normal tree. Better fit?",
+        opts: ["Circular layout", "Fractal layout", "Simulated annealing", "None — trees can't be improved"],
+        correct: 1,
+        fb: "Correct — fractal layout wraps each generation radially around its parent, packing wide/deep hierarchies far more compactly."
+      }
+    ],
+    sources: [
+      { name: "MindFusion — full layout catalog", meta: "Side-by-side layout families", url: "https://mindfusion.dev/graph-layout.html" },
+      { name: "Graph Drawing Tutorial (Cruz & Tamassia)", meta: "Complexity and tradeoffs reference", url: "https://cs.brown.edu/people/rtamassi/papers/gd-tutorial/gd-constraints.pdf" }
+    ]
+  }
+];
+
+/* ============================================================
+   STATE + RENDERING
+   ============================================================ */
+const state = { current: -1, done: new Set(), quizAnswered: {} };
+
+const els = {
+  nav: document.getElementById("lesson-nav"),
+  overview: document.getElementById("overview"),
+  overviewGrid: document.getElementById("overview-grid"),
+  lessonView: document.getElementById("lesson-view"),
+  reviewView: document.getElementById("review-view"),
+  progressFill: document.getElementById("progress-fill"),
+  progressCount: document.getElementById("progress-count"),
+  startBtn: document.getElementById("start-btn"),
+  overviewBtn: document.getElementById("overview-btn")
+};
+
+function buildNav() {
+  els.nav.innerHTML = "";
+  COURSE.forEach((lesson, i) => {
+    const btn = document.createElement("button");
+    btn.className = "nav-item";
+    btn.dataset.index = String(i);
+    btn.innerHTML =
+      `<span class="nav-num">L${i + 1}</span>` +
+      `<span class="nav-title">${lesson.title}</span>` +
+      `<span class="nav-check">✓</span>`;
+    btn.addEventListener("click", () => openLesson(i));
+    els.nav.appendChild(btn);
+  });
+
+  const reviewBtn = document.createElement("button");
+  reviewBtn.className = "nav-item";
+  reviewBtn.dataset.index = "review";
+  reviewBtn.innerHTML =
+    `<span class="nav-num">★</span>` +
+    `<span class="nav-title">Final review</span>` +
+    `<span class="nav-check">✓</span>`;
+  reviewBtn.addEventListener("click", openReview);
+  els.nav.appendChild(reviewBtn);
+}
+
+function buildOverview() {
+  els.overviewGrid.innerHTML = "";
+  COURSE.forEach((lesson, i) => {
+    const card = document.createElement("div");
+    card.className = "ov-card";
+    card.innerHTML =
+      `<div class="ovn">Lesson ${i + 1}</div>` +
+      `<h3>${lesson.title}</h3>` +
+      `<p>${lesson.goal}</p>`;
+    card.addEventListener("click", () => openLesson(i));
+    card.style.cursor = "pointer";
+    els.overviewGrid.appendChild(card);
+  });
+}
+
+function refreshNav() {
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    const idx = btn.dataset.index;
+    btn.classList.toggle("active", String(state.current) === idx);
+    if (idx !== "review" && state.done.has(Number(idx))) {
+      btn.classList.add("done");
+    }
+  });
+  const count = state.done.size;
+  els.progressCount.textContent = String(count);
+  els.progressFill.style.width = (count / COURSE.length) * 100 + "%";
+}
+
+function show(view) {
+  els.overview.classList.toggle("hidden", view !== "overview");
+  els.lessonView.classList.toggle("hidden", view !== "lesson");
+  els.reviewView.classList.toggle("hidden", view !== "review");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openOverview() {
+  state.current = -1;
+  show("overview");
+  refreshNav();
+}
+
+function flashcardHTML(card, idx) {
+  return (
+    `<button class="flip" data-card="${idx}">` +
+      `<div class="flip-inner">` +
+        `<div class="flip-face flip-front">` +
+          `<div class="flip-q">${card.q}</div>` +
+          `<div class="flip-hint">Tap to reveal</div>` +
+        `</div>` +
+        `<div class="flip-face flip-back">` +
+          `<div class="flip-a">${card.a}</div>` +
+        `</div>` +
+      `</div>` +
+    `</button>`
+  );
+}
+
+function quizHTML(quiz, qi) {
+  const opts = quiz.opts
+    .map((o, oi) => `<button class="opt" data-q="${qi}" data-opt="${oi}">${o}</button>`)
+    .join("");
+  return (
+    `<div class="quiz" data-quiz="${qi}">` +
+      `<div class="quiz-q">${quiz.q}</div>` +
+      `<div class="quiz-opts">${opts}</div>` +
+      `<div class="quiz-fb" data-fb="${qi}"></div>` +
+    `</div>`
+  );
+}
+
+function sourceHTML(src) {
+  return (
+    `<a class="src-card" href="${src.url}" target="_blank" rel="noopener noreferrer">` +
+      `<div class="src-name">${src.name}</div>` +
+      `<div class="src-meta">${src.meta}</div>` +
+      `<div class="src-link">${src.url}</div>` +
+    `</a>`
+  );
+}
+
+function highlightCode(scope) {
+  const KW = new Set(["def","for","if","else","elif","return","import","in","not","and",
+    "or","while","None","True","False","class","from","as","with","lambda","continue","break"]);
+  const TOKEN = /("[^"]*"|'[^']*')|(\d+\.?\d*)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|([^\sA-Za-z0-9_"'])/g;
+  const wrap = function (cls, txt) { return '<span class="' + cls + '">' + txt + '</span>'; };
+  scope.querySelectorAll("pre code").forEach(function (block) {
+    const raw = block.textContent;
+    const lines = raw.split("\n").map(function (line) {
+      const hash = line.indexOf("#");
+      let code = line, comment = "";
+      if (hash !== -1) { code = line.slice(0, hash); comment = line.slice(hash); }
+      let out = "";
+      let m;
+      TOKEN.lastIndex = 0;
+      while ((m = TOKEN.exec(code)) !== null) {
+        if (m[1]) out += wrap("tok-str", esc(m[1]));
+        else if (m[2]) out += wrap("tok-num", m[2]);
+        else if (m[3]) {
+          const after = code.slice(TOKEN.lastIndex).match(/^\s*\(/);
+          if (KW.has(m[3])) out += wrap("tok-kw", m[3]);
+          else if (after) out += wrap("tok-fn", m[3]);
+          else out += m[3];
+        }
+        else if (m[4]) out += m[4];
+        else out += esc(m[5]);
+      }
+      if (comment) out += wrap("tok-com", esc(comment));
+      return out;
+    });
+    block.innerHTML = lines.join("\n");
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function openLesson(i) {
+  state.current = i;
+  const lesson = COURSE[i];
+
+  const objectives =
+    `<div class="objectives">` +
+      `<div class="obj-title">Learning objectives</div>` +
+      `<ul>${lesson.objectives.map((o) => `<li>${o}</li>`).join("")}</ul>` +
+    `</div>`;
+
+  const cards =
+    `<div class="section-label">Flashcards</div>` +
+    `<div class="cards">${lesson.cards.map(flashcardHTML).join("")}</div>`;
+
+  const quizzes =
+    `<div class="section-label">Knowledge check</div>` +
+    lesson.quiz.map(quizHTML).join("");
+
+  const sources =
+    `<div class="section-label">Sources</div>` +
+    `<div class="sources">${lesson.sources.map(sourceHTML).join("")}</div>`;
+
+  const isLast = i === COURSE.length - 1;
+  const footer =
+    `<div class="lesson-footer">` +
+      `<button class="nav-btn" id="prev-btn" ${i === 0 ? "disabled" : ""}>← Previous</button>` +
+      `<button class="nav-btn done-btn" id="complete-btn">` +
+        `${state.done.has(i) ? "✓ Completed" : "Mark complete"}</button>` +
+      `<button class="nav-btn" id="next-btn">` +
+        `${isLast ? "Final review →" : "Next →"}</button>` +
+    `</div>`;
+
+  els.lessonView.innerHTML =
+    `<div class="lesson-head">` +
+      `<div class="lesson-eyebrow">Lesson ${i + 1} of ${COURSE.length}</div>` +
+      `<h1>${lesson.title}</h1>` +
+      `<div class="lesson-goal">${lesson.goal}</div>` +
+    `</div>` +
+    objectives +
+    `<div class="lesson-body">${lesson.body}</div>` +
+    cards +
+    quizzes +
+    sources +
+    footer;
+
+  show("lesson");
+  highlightCode(els.lessonView);
+  wireLesson(i);
+  refreshNav();
+}
+
+function wireLesson(i) {
+  els.lessonView.querySelectorAll(".flip").forEach((card) => {
+    card.addEventListener("click", () => card.classList.toggle("flipped"));
+  });
+
+  els.lessonView.querySelectorAll(".opt").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      const qi = Number(opt.dataset.q);
+      const oi = Number(opt.dataset.opt);
+      const quiz = COURSE[i].quiz[qi];
+      const container = els.lessonView.querySelector(`.quiz[data-quiz="${qi}"]`);
+      if (container.dataset.answered === "true") return;
+      container.dataset.answered = "true";
+
+      container.querySelectorAll(".opt").forEach((o, idx) => {
+        o.disabled = true;
+        if (idx === quiz.correct) o.classList.add("correct");
+      });
+      if (oi !== quiz.correct) opt.classList.add("wrong");
+
+      const fb = container.querySelector(`.quiz-fb[data-fb="${qi}"]`);
+      fb.textContent = quiz.fb;
+      fb.classList.add("show", oi === quiz.correct ? "ok" : "no");
+    });
+  });
+
+  const prev = document.getElementById("prev-btn");
+  const next = document.getElementById("next-btn");
+  const complete = document.getElementById("complete-btn");
+
+  if (prev) prev.addEventListener("click", () => openLesson(i - 1));
+  if (next)
+    next.addEventListener("click", () => {
+      if (i === COURSE.length - 1) openReview();
+      else openLesson(i + 1);
+    });
+  if (complete)
+    complete.addEventListener("click", () => {
+      state.done.add(i);
+      complete.textContent = "✓ Completed";
+      refreshNav();
+    });
+}
+
+/* ============================================================
+   FINAL REVIEW — cumulative quiz pulling one item per lesson
+   ============================================================ */
+const REVIEW = [
+  {
+    q: "Which layout assumes a rooted hierarchy and runs in O(n)?",
+    opts: ["Circular", "Tree", "Fruchterman-Reingold", "Anneal"],
+    correct: 1,
+    fb: "Tree layout — depth sets y, traversal sets x, and Reingold-Tilford keeps it linear."
+  },
+  {
+    q: "In a circular layout the dominant design decision is:",
+    opts: ["The radius", "The node ordering around the ring", "The edge color", "The root choice"],
+    correct: 1,
+    fb: "Ordering — it alone determines crossings, since chords cross iff endpoints interleave."
+  },
+  {
+    q: "Fractal layout is best summarized as:",
+    opts: [
+      "One big circle of all nodes",
+      "Circular layout applied recursively up a hierarchy",
+      "A physics simulation",
+      "A cost-minimizing random search"
+    ],
+    correct: 1,
+    fb: "It nests small circles — children around each parent, recursively — for compact hierarchy drawings."
+  },
+  {
+    q: "Simulated annealing accepts a worse layout with probability:",
+    opts: ["exp(-ΔE / T)", "k² / d", "d² / k", "1 / depth"],
+    correct: 0,
+    fb: "exp(-ΔE / T) — the temperature-controlled acceptance rule that lets it escape local optima."
+  },
+  {
+    q: "Fruchterman-Reingold's attractive force along an edge is:",
+    opts: ["k² / d", "d² / k", "exp(-d/T)", "k / d"],
+    correct: 1,
+    fb: "Attraction is d²/k; repulsion between all pairs is k²/d. k is the ideal node spacing."
+  },
+  {
+    q: "The crisp difference between annealing and force-directed methods:",
+    opts: [
+      "Annealing is for trees, force-directed for circles",
+      "Annealing probabilistically moves uphill to escape traps; force-directed always rolls downhill",
+      "They are identical",
+      "Force-directed cannot reveal symmetry"
+    ],
+    correct: 1,
+    fb: "That uphill-gamble vs. always-downhill contrast is the key distinction."
+  },
+  {
+    q: "At 50k unstructured nodes, naive FR fails mainly because:",
+    opts: [
+      "It needs a root",
+      "Its all-pairs repulsion is O(V²) per iteration",
+      "It only works on planar graphs",
+      "It cannot use temperature"
+    ],
+    correct: 1,
+    fb: "The O(V²) repulsion is the wall; Barnes-Hut / grid approximations bring it toward O(V log V)."
+  },
+  {
+    q: "To animate a tree layout from a random scatter, you should:",
+    opts: [
+      "Run one tree-layout iteration per frame",
+      "Precompute final positions once, then tween from the random start with easing",
+      "Recompute the full layout every frame",
+      "Use simulated annealing instead"
+    ],
+    correct: 1,
+    fb: "Tree layout is one-shot and O(n) — precompute the target once, then interpolate. Iterating live is for FR and annealing."
+  }
+];
+
+function openReview() {
+  state.current = -1;
+  const quizzes = REVIEW.map((quiz, qi) => quizHTML(quiz, qi)).join("");
+  els.reviewView.innerHTML =
+    `<div class="lesson-head">` +
+      `<div class="lesson-eyebrow">Cumulative review</div>` +
+      `<h1>Final review</h1>` +
+      `<div class="lesson-goal">One question per concept across all seven lessons. ` +
+      `Your score updates as you answer.</div>` +
+    `</div>` +
+    `<div class="review-score" id="review-score">0 <small>/ ${REVIEW.length}</small></div>` +
+    `<div class="section-label">Questions</div>` +
+    quizzes +
+    `<div class="lesson-footer">` +
+      `<button class="nav-btn" id="review-back">← Back to lessons</button>` +
+      `<button class="nav-btn done-btn" id="review-overview">Course overview</button>` +
+    `</div>`;
+
+  show("review");
+
+  let score = 0;
+  const scoreEl = document.getElementById("review-score");
+  els.reviewView.querySelectorAll(".opt").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      const qi = Number(opt.dataset.q);
+      const oi = Number(opt.dataset.opt);
+      const quiz = REVIEW[qi];
+      const container = els.reviewView.querySelector(`.quiz[data-quiz="${qi}"]`);
+      if (container.dataset.answered === "true") return;
+      container.dataset.answered = "true";
+
+      container.querySelectorAll(".opt").forEach((o, idx) => {
+        o.disabled = true;
+        if (idx === quiz.correct) o.classList.add("correct");
+      });
+      if (oi !== quiz.correct) opt.classList.add("wrong");
+      else {
+        score += 1;
+        scoreEl.innerHTML = `${score} <small>/ ${REVIEW.length}</small>`;
+      }
+
+      const fb = container.querySelector(`.quiz-fb[data-fb="${qi}"]`);
+      fb.textContent = quiz.fb;
+      fb.classList.add("show", oi === quiz.correct ? "ok" : "no");
+    });
+  });
+
+  document.getElementById("review-back").addEventListener("click", () => openLesson(COURSE.length - 1));
+  document.getElementById("review-overview").addEventListener("click", openOverview);
+  refreshNav();
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+buildNav();
+buildOverview();
+refreshNav();
+els.startBtn.addEventListener("click", () => openLesson(0));
+els.overviewBtn.addEventListener("click", openOverview);
+
+</script>
+</body>
+</html>
