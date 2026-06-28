@@ -85,6 +85,15 @@ pre .tok-fn{color:#9ecbff}        /* function names */
 pre .tok-str{color:#b5cea8}       /* strings */
 pre .tok-num{color:#d4a0e0}       /* numbers */
 pre .tok-com{color:#8a8178;font-style:italic}  /* comments */
+
+/* live visualizers */
+.viz{background:#fffdf8;border:1px solid var(--border);border-radius:var(--radius);
+  padding:8px 8px 0;margin:-6px 0 22px;overflow:hidden}
+.viz canvas{border-radius:5px}
+.viz-cap{font-size:12px;color:var(--muted);padding:8px 6px 10px;line-height:1.45;
+  border-top:1px solid var(--border);margin-top:6px}
+.viz-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);
+  font-weight:700;margin:0 0 6px}
 .callout{background:#fdf4e8;border:1px solid #f0dcc0;border-left:3px solid var(--accent);
   border-radius:var(--radius);padding:13px 16px;margin:0 0 20px;font-size:14px}
 .callout strong{color:var(--accent)}
@@ -327,6 +336,21 @@ const COURSE = [
     walk(root, 0)
     return positions</code></pre>
 <p>This centers parents over children and gives leaves sequential slots — a respectable result in a dozen lines. Reingold-Tilford replaces the leaf-slotting with contour-based subtree merging.</p>
+<div class="viz-label">Live: tree layout</div>
+<div class="viz" data-viz="tree"></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>In detail: the contour algorithm</h2>
+<p>This is the section to come back to once the basics click. The naive sketch has one real flaw: it places leaves at sequential integer slots regardless of how subtrees nest, so deep subtrees waste horizontal space and identical subtrees can render differently. Reingold-Tilford fixes this with <strong>contours</strong>.</p>
+<p>A subtree's <em>left contour</em> is the sequence of its leftmost x-positions at each depth; its <em>right contour</em> is the rightmost x at each depth. The algorithm works bottom-up:</p>
+<ul>
+<li><strong>Lay out each subtree relative to its own root</strong> (root at x=0), recursively.</li>
+<li><strong>Merge siblings left to right.</strong> To place the next sibling beside the ones already placed, walk down the right contour of the left block and the left contour of the right subtree <em>in lockstep</em>, depth by depth. At each shared depth, measure the gap. The required horizontal shift is the largest overlap found plus a minimum separation. Shift the new subtree right by that amount.</li>
+<li><strong>Center the parent</strong> over its children's combined span and record the new merged contours for the level above.</li>
+</ul>
+<p>The subtle cost: naively, walking contours and shifting can revisit nodes, giving <code>O(n²)</code> on degenerate trees. The classic fix is <strong>threads</strong> — temporary pointers that let you skip across a subtree's contour in O(1) instead of walking every node — plus storing each subtree's offset as a <em>relative</em> shift (a "mod" value) that is summed in a final pass. Walker's algorithm extended this to n-ary trees; Buchheim, Jünger &amp; Leipert (2002) corrected Walker's to genuine linear time. That trio — contours, threads, deferred mod-sums — is the whole trick behind every production tree layout (D3's <code>tree()</code>, Graphviz <code>dot</code>'s tree case, etc.).</p>
+<div class="math-note"><span class="tag">Maths, kept light</span>There is no calculus here — it is bookkeeping. The only "equation" is the shift: <code>shift = max over shared depths d of (rightContourLeft[d] - leftContourRight[d]) + minSep</code>. Everything else is pointer plumbing to make that cheap.</div>
 </div>
 
 <div class="callout"><strong>When to reach for it:</strong> any time the data is genuinely a hierarchy. It is fast, deterministic, and stable (small data changes cause small layout changes). It is the wrong tool the moment your graph has cycles or a node with two parents — then it is no longer a tree.</div>
@@ -409,6 +433,17 @@ def circular_positions(order, radius=1.0):
                      radius * math.sin(theta))
     return pos</code></pre>
 <p>The placement is four lines. All the engineering effort goes into choosing <code>order</code> and deciding which edges to route outside or bundle.</p>
+<div class="viz-label">Live: circular layout</div>
+<div class="viz" data-viz="circular"></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>In detail: ordering, exterior routing, bundling</h2>
+<p>Come back here once the basics land. Circular layout's quality lives entirely in three optimization layers from Gansner &amp; Koren's "Improved Circular Layouts."</p>
+<p><strong>1. Ordering by edge-length minimization.</strong> Treat each node's position as an angle. Repeatedly move every node to the circular mean of its neighbors' angles, then re-project onto the circle. This is a relaxation that shortens chords (shorter chords cross less). The degenerate trap is that the global optimum collapses all nodes to one point, so you periodically re-impose even spacing (preserve the order, reset the angles to be uniform) and optionally pin three "anchor" nodes — the same anti-collapse trick Tutte used. A discrete dynamic-programming refinement then slides windows of ~6 consecutive nodes to find local reorderings that cut total edge length further.</p>
+<p><strong>2. Exterior routing.</strong> After ordering, you can move a subset of edges to the <em>outside</em> of the circle. Crucially, two edges cross on the outside exactly when they would cross on the inside, so any set of mutually non-crossing edges can be lifted out without adding crossings — and it relieves the dense interior. Choosing the maximum-weight liftable set maps to a parenthesis-matching problem (an edge "opens" at its left endpoint and "closes" at its right; a valid non-crossing set is a valid nesting), solvable exactly by <code>O(n²)</code> dynamic programming. Weighting by how many crossings each edge participates in makes the DP maximize crossings removed.</p>
+<p><strong>3. Edge bundling.</strong> Remaining interior edges that travel roughly together are merged into shared spline "cables." Endpoints are split into source/target groups (a k-means step), two meeting points are placed to minimize total ink, and edges are drawn as Béziers through them. Crossing edges are never bundled, so you never lose track of which source connects to which target.</p>
+<div class="callout">Mental model: ordering reduces the problem, exterior routing removes the cheap wins, bundling cleans up what's left. Each is independent — you can ship just the ordering and still get most of the readability gain.</div>
 </div>
 
 <div class="callout"><strong>When to reach for it:</strong> network/systems diagrams, social or web graphs where you want to emphasize a cluster decomposition, or anywhere "no node gets hidden" matters. Avoid it for dense graphs unless you add exterior routing and bundling, and avoid it when following individual paths is the main task.</div>
@@ -485,6 +520,20 @@ def circular_positions(order, radius=1.0):
         # shrink radius as we descend so sub-circles fit
         fractal_layout(child, child_center, radius * 0.45)</code></pre>
 <p>The shrink factor (here <code>0.45</code>) is the one knob that matters: too large and sibling sub-circles overlap; too small and the drawing collapses inward. Production implementations size each child circle from how many descendants it contains rather than using a flat factor.</p>
+<div class="viz-label">Live: fractal layout</div>
+<div class="viz" data-viz="fractal"></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>In detail: sizing and rotating the sub-circles</h2>
+<p>The flat shrink factor in the sketch is what breaks first on real data, because siblings rarely have equal-sized subtrees. The fixes:</p>
+<ul>
+<li><strong>Radius from subtree weight.</strong> Instead of <code>radius * 0.45</code>, give each child an angular slice and a radius proportional to the number of descendants it carries (or the depth/width of its subtree). A child with a huge subtree gets a bigger circle and a wider angular wedge; a leaf gets a tiny one. This is the difference between a balanced bloom and a tangle.</li>
+<li><strong>Angular allocation.</strong> Rather than spacing children evenly (<code>2π·i/n</code>), allocate each child an arc proportional to its subtree's angular "footprint," so big subtrees don't crash into their neighbors. This is the same idea as a <em>radial tree layout</em>, where each node owns an angular sector sized to its leaf count.</li>
+<li><strong>Rotation to avoid backtracking.</strong> Offsetting each generation's start angle (the <code>depth * 0.4</code> term in the live demo) keeps grandchild circles from pointing straight back at the grandparent, which reduces overlap and visual collisions.</li>
+</ul>
+<p>Seen this way, "fractal layout" and "radial tree layout" are nearly the same algorithm with different emphasis: radial tree thinks in concentric rings of constant depth, fractal thinks in nested circles per parent. Both are <code>O(n)</code> single passes, and both reduce to: give each node an angular sector and a radius, recurse.</p>
+<div class="callout">Because it is recursive and one-shot, the natural failure mode is overlap, not slowness. If two branches collide, the fix is always in the <em>radius/angle allocation</em>, never in adding iterations.</div>
 </div>
 
 <div class="block">
@@ -573,6 +622,19 @@ def anneal(nodes, energy, T=1.0, cooling=0.75, rounds=30):
         T *= cooling                           # cool down
     return nodes</code></pre>
 <p>Everything specific to <em>graphs</em> lives in <code>energy()</code>; the annealing loop itself is generic optimization.</p>
+<div class="viz-label">Live: simulated annealing</div>
+<div class="viz" data-viz="anneal"></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>In detail: schedule, neighborhood, and incremental energy</h2>
+<p>Once the metaphor clicks, three engineering details decide whether annealing actually works:</p>
+<ul>
+<li><strong>The cooling schedule.</strong> Geometric cooling (<code>T ← T · α</code>) with α around 0.75–0.95 is standard; Davidson &amp; Harel defaulted to 0.75. Higher α cools slower, explores more, costs more. You also need a <em>number of trials per temperature</em> — typically proportional to the graph size — so each temperature level gets enough moves to matter. Stop when T is tiny or when several consecutive temperature levels produce no accepted improving move.</li>
+<li><strong>The neighborhood (move set).</strong> What counts as "a random move" shapes everything. The simplest is: pick one node, propose a new position within a radius that itself shrinks with T (big jumps when hot, fine nudges when cold). Richer move sets — moving a node onto a grid cell, swapping two nodes, relocating a whole connected component while preserving its shape — can escape different traps. The move set is a design lever, not a fixed rule.</li>
+<li><strong>Incremental energy (the performance key).</strong> Recomputing the full energy after every move is <code>O(n²)</code> per move and kills you. Instead compute only the <em>delta</em> caused by moving one node: just that node's pairwise terms and incident edges. That is what makes the inner loop <code>O(n)</code> or better per move, and it is the single most important optimization in any annealing implementation.</li>
+</ul>
+<div class="math-note"><span class="tag">Maths, kept light</span>The acceptance rule <code>P(accept) = exp(-ΔE / T)</code> comes from the Metropolis criterion in statistical mechanics. You do not need the physics — operationally it means: at high T, even a move that doubles the ugliness is accepted maybe half the time; at low T, only near-zero or improving moves get through. The exponential is the only formula in the whole method.</div>
 </div>
 
 <div class="callout"><strong>When to reach for it:</strong> small graphs (the original work was practical to roughly 30 nodes / 50 edges) where you want fine control over which aesthetics win, and you can afford slow computation. It is flexible and produces competitive layouts, but it is genuinely slow and a poor fit for interactive or large-graph use.</div>
@@ -684,6 +746,21 @@ def fruchterman_reingold(nodes, edges, W, H, iters=50):
 
         t *= 0.95                     # cool: smaller steps over time
     return nodes</code></pre>
+<div class="viz-label">Live: Fruchterman-Reingold force simulation</div>
+<div class="viz" data-viz="fr"></div>
+</div>
+
+<div class="block">
+<h2><span class="dot"></span>In detail: convergence, scaling, and the Barnes-Hut speedup</h2>
+<p>The deep version of FR is really about taming the <code>O(V²)</code> repulsion and getting clean convergence.</p>
+<ul>
+<li><strong>Why repulsion is the bottleneck.</strong> Attraction only runs over edges (<code>O(E)</code>), but repulsion is every-pair (<code>O(V²)</code>). On a 10k-node graph that is 100M force computations <em>per iteration</em>, times ~50 iterations. Everything scalable about force-directed layout is about approximating this term.</li>
+<li><strong>Barnes-Hut / quadtree approximation.</strong> Borrowed from n-body astrophysics: build a quadtree over the nodes, and for a distant cluster of nodes, treat the whole cluster as a single point at its center of mass instead of summing each node. A threshold θ controls how far is "far enough." This drops repulsion to <code>O(V log V)</code> and is what every modern force layout (D3-force, ForceAtlas2, sfdp) actually uses.</li>
+<li><strong>Grid/cell approximation.</strong> A simpler alternative: bin nodes into a spatial grid and only compute exact repulsion within nearby cells, approximating or ignoring far ones. Cruder than Barnes-Hut but trivial to implement.</li>
+<li><strong>Convergence and local minima.</strong> FR always descends, so it can settle into a tangled local minimum (especially symmetric or large graphs). The standard defenses: <em>multilevel</em> approaches (coarsen the graph by merging nodes, lay out the small version, progressively refine — this is what makes million-node layouts possible), good initial placement instead of pure random, and adaptive cooling that backs off when energy stops dropping. Bare FR from random start is fine for the small graphs in the demo above and gets fragile past a few thousand nodes without these.</li>
+<li><strong>The k constant, revisited.</strong> <code>k = sqrt(area / n)</code> sets the equilibrium spacing, but in practice people scale it (the demo uses <code>· 0.55</code>) to taste — larger k spreads nodes out, smaller k packs them. It does not change the dynamics, only the resting scale.</li>
+</ul>
+<div class="callout">If you remember one thing: FR's quality/speed story is entirely the repulsion term. Naive all-pairs for clarity and small graphs; Barnes-Hut quadtree the moment you care about scale.</div>
 </div>
 
 <div class="callout"><strong>When to reach for it:</strong> general undirected graphs with no known structure, where you want an organic, symmetry-revealing layout. It is the default in most graph tools. The naive version is <code>O(V²)</code> per iteration, so plain FR struggles past a few thousand nodes — large-scale variants use spatial grids or Barnes-Hut quadtrees to approximate repulsion and bring it down toward <code>O(V log V)</code>.</p></div>
@@ -1000,6 +1077,7 @@ function show(view) {
 }
 
 function openOverview() {
+  stopVisualizers();
   state.current = -1;
   show("overview");
   refreshNav();
@@ -1081,7 +1159,404 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/* ============================================================
+   VISUALIZERS — live canvas animations, one per algorithm.
+   Each builds a small graph and animates it, looping forever.
+   activeViz holds running instances so we can stop them on
+   lesson switch (avoids leaked rAF loops).
+   ============================================================ */
+let activeViz = [];
+
+function stopVisualizers() {
+  activeViz.forEach((v) => { v.running = false; if (v.raf) cancelAnimationFrame(v.raf); });
+  activeViz = [];
+}
+
+const VIZ_COLORS = {
+  node: "#c2410c", nodeEdge: "#7a2a08", edge: "#cdbfa8",
+  text: "#5b4a36", ghost: "#e0d3bf", accent2: "#2563a8"
+};
+
+function makeCanvas(host) {
+  const W = host.clientWidth || 560;
+  const H = 240;
+  const dpr = window.devicePixelRatio || 1;
+  const cv = document.createElement("canvas");
+  cv.width = W * dpr; cv.height = H * dpr;
+  cv.style.width = "100%"; cv.style.height = H + "px";
+  cv.style.display = "block";
+  host.appendChild(cv);
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { ctx, W, H };
+}
+
+function drawEdges(ctx, edges, pos) {
+  ctx.strokeStyle = VIZ_COLORS.edge;
+  ctx.lineWidth = 1.5;
+  edges.forEach(([a, b]) => {
+    ctx.beginPath();
+    ctx.moveTo(pos[a][0], pos[a][1]);
+    ctx.lineTo(pos[b][0], pos[b][1]);
+    ctx.stroke();
+  });
+}
+
+function drawNodes(ctx, pos, r) {
+  r = r || 7;
+  for (const id in pos) {
+    ctx.beginPath();
+    ctx.arc(pos[id][0], pos[id][1], r, 0, Math.PI * 2);
+    ctx.fillStyle = VIZ_COLORS.node;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = VIZ_COLORS.nodeEdge;
+    ctx.stroke();
+  }
+}
+
+function vizCaption(host, text) {
+  const cap = document.createElement("div");
+  cap.className = "viz-cap";
+  cap.textContent = text;
+  host.appendChild(cap);
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+/* ---- helper graphs ---------------------------------------- */
+function sampleTree() {
+  // node: id -> {children:[], depth}
+  const nodes = {
+    A: { children: ["B", "C", "D"], depth: 0 },
+    B: { children: ["E", "F"], depth: 1 },
+    C: { children: ["G"], depth: 1 },
+    D: { children: ["H", "I"], depth: 1 },
+    E: { children: [], depth: 2 }, F: { children: [], depth: 2 },
+    G: { children: ["J", "K"], depth: 2 }, H: { children: [], depth: 2 },
+    I: { children: [], depth: 2 }, J: { children: [], depth: 3 }, K: { children: [], depth: 3 }
+  };
+  return nodes;
+}
+
+function randomGraph(n, extra) {
+  const ids = [];
+  for (let i = 0; i < n; i++) ids.push("n" + i);
+  const edges = [];
+  // spanning path so it is connected
+  for (let i = 1; i < n; i++) edges.push([ids[i - 1], ids[i]]);
+  // a few extra edges
+  for (let k = 0; k < extra; k++) {
+    const a = ids[Math.floor(Math.random() * n)];
+    const b = ids[Math.floor(Math.random() * n)];
+    if (a !== b) edges.push([a, b]);
+  }
+  return { ids, edges };
+}
+
+/* ---- TREE: positions computed once, nodes drop in by depth ---- */
+function vizTree(host) {
+  const { ctx, W, H } = makeCanvas(host);
+  vizCaption(host, "Positions are computed in one O(n) pass, then tweened in by depth — the tree grows from the root.");
+  const tree = sampleTree();
+  const ids = Object.keys(tree);
+  const maxDepth = Math.max(...ids.map((id) => tree[id].depth));
+  // compute target layout: x = leaf order, y = depth
+  const target = {};
+  let leaf = 0;
+  (function walk(id) {
+    const node = tree[id];
+    node.children.forEach(walk);
+    let x;
+    if (node.children.length) {
+      const xs = node.children.map((c) => target[c][0]);
+      x = xs.reduce((a, b) => a + b, 0) / xs.length;
+    } else { x = leaf++; }
+    target[id] = [x, node.depth];
+  })("A");
+  const leaves = leaf;
+  const padX = 40, padY = 32;
+  const sx = (W - 2 * padX) / Math.max(1, leaves - 1);
+  const sy = (H - 2 * padY) / Math.max(1, maxDepth);
+  const scaled = {};
+  ids.forEach((id) => { scaled[id] = [padX + target[id][0] * sx, padY + target[id][1] * sy]; });
+  const edges = [];
+  ids.forEach((id) => tree[id].children.forEach((c) => edges.push([id, c])));
+
+  const inst = { running: true, raf: null };
+  const DUR = 2600, HOLD = 900;
+  let t0 = performance.now();
+  function frame(now) {
+    if (!inst.running) return;
+    let elapsed = now - t0;
+    if (elapsed > DUR + HOLD) { t0 = now; elapsed = 0; }
+    ctx.clearRect(0, 0, W, H);
+    const pos = {};
+    ids.forEach((id) => {
+      const d = tree[id].depth;
+      const delay = (d / (maxDepth + 1)) * DUR * 0.6;
+      let p = (elapsed - delay) / (DUR * 0.4);
+      p = Math.max(0, Math.min(1, p));
+      const e = easeOutCubic(p);
+      const tx = scaled[id][0], ty = scaled[id][1];
+      pos[id] = [tx, padY - 18 + (ty - (padY - 18)) * e];
+      pos[id][3] = e; // alpha proxy
+    });
+    // edges only when both ends have appeared a bit
+    ctx.strokeStyle = VIZ_COLORS.edge; ctx.lineWidth = 1.5;
+    edges.forEach(([a, b]) => {
+      const e = Math.min(pos[a][3], pos[b][3]);
+      if (e <= 0.05) return;
+      ctx.globalAlpha = e;
+      ctx.beginPath(); ctx.moveTo(pos[a][0], pos[a][1]); ctx.lineTo(pos[b][0], pos[b][1]); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    ids.forEach((id) => {
+      const e = pos[id][3];
+      if (e <= 0.02) return;
+      ctx.globalAlpha = e;
+      ctx.beginPath(); ctx.arc(pos[id][0], pos[id][1], 7, 0, Math.PI * 2);
+      ctx.fillStyle = VIZ_COLORS.node; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = VIZ_COLORS.nodeEdge; ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    inst.raf = requestAnimationFrame(frame);
+  }
+  inst.raf = requestAnimationFrame(frame);
+  activeViz.push(inst);
+}
+
+/* ---- CIRCULAR: nodes spiral from center onto the ring ---- */
+function vizCircular(host) {
+  const { ctx, W, H } = makeCanvas(host);
+  vizCaption(host, "One-shot layout: nodes interpolate in polar coordinates, spiralling from the center onto the ring.");
+  const N = 12;
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 26;
+  const order = [];
+  for (let i = 0; i < N; i++) order.push("n" + i);
+  // ring edges + a few chords
+  const edges = [];
+  for (let i = 0; i < N; i++) edges.push([order[i], order[(i + 1) % N]]);
+  [[0, 5], [2, 8], [3, 9], [1, 7]].forEach(([a, b]) => edges.push([order[a], order[b]]));
+  const target = {};
+  order.forEach((id, i) => {
+    const th = (2 * Math.PI * i) / N - Math.PI / 2;
+    target[id] = [cx + R * Math.cos(th), cy + R * Math.sin(th)];
+  });
+  const inst = { running: true, raf: null };
+  const DUR = 2400, HOLD = 1100;
+  let t0 = performance.now();
+  function frame(now) {
+    if (!inst.running) return;
+    let el = now - t0;
+    if (el > DUR + HOLD) { t0 = now; el = 0; }
+    let p = Math.min(1, el / DUR);
+    const e = easeOutCubic(p);
+    ctx.clearRect(0, 0, W, H);
+    const pos = {};
+    order.forEach((id, i) => {
+      const th = (2 * Math.PI * i) / N - Math.PI / 2;
+      const r = R * e;
+      const spin = (1 - e) * Math.PI; // extra rotation while spiralling
+      pos[id] = [cx + r * Math.cos(th + spin), cy + r * Math.sin(th + spin)];
+    });
+    ctx.globalAlpha = Math.max(0.15, e);
+    drawEdges(ctx, edges, pos);
+    ctx.globalAlpha = 1;
+    drawNodes(ctx, pos, 6.5);
+    inst.raf = requestAnimationFrame(frame);
+  }
+  inst.raf = requestAnimationFrame(frame);
+  activeViz.push(inst);
+}
+
+/* ---- FRACTAL: recursive radial unfold by depth ---- */
+function vizFractal(host) {
+  const { ctx, W, H } = makeCanvas(host);
+  vizCaption(host, "Recursive radial placement: each generation unfolds into a circle around its parent.");
+  const cx = W / 2, cy = H / 2;
+  // build target positions + depth via recursion
+  const nodes = []; // {pos:[x,y], depth, parent}
+  function build(center, radius, depth, parentIdx, count) {
+    const idx = nodes.length;
+    nodes.push({ pos: center, depth, parent: parentIdx });
+    if (depth >= 3) return;
+    const n = count;
+    for (let i = 0; i < n; i++) {
+      const th = (2 * Math.PI * i) / n + depth * 0.4;
+      const c = [center[0] + radius * Math.cos(th), center[1] + radius * Math.sin(th)];
+      build(c, radius * 0.45, depth + 1, idx, depth === 0 ? 3 : 2);
+    }
+  }
+  build([cx, cy], Math.min(W, H) / 2 - 30, 0, -1, 5);
+  const maxDepth = Math.max(...nodes.map((n) => n.depth));
+  const inst = { running: true, raf: null };
+  const DUR = 3000, HOLD = 1100;
+  let t0 = performance.now();
+  function frame(now) {
+    if (!inst.running) return;
+    let el = now - t0;
+    if (el > DUR + HOLD) { t0 = now; el = 0; }
+    ctx.clearRect(0, 0, W, H);
+    const appeared = [];
+    nodes.forEach((nd, i) => {
+      const delay = (nd.depth / (maxDepth + 1)) * DUR * 0.7;
+      let p = (el - delay) / (DUR * 0.3);
+      p = Math.max(0, Math.min(1, p));
+      const e = easeOutCubic(p);
+      let px = nd.pos[0], py = nd.pos[1];
+      if (nd.parent >= 0) {
+        const pp = nodes[nd.parent].pos;
+        px = pp[0] + (nd.pos[0] - pp[0]) * e;
+        py = pp[1] + (nd.pos[1] - pp[1]) * e;
+      }
+      appeared.push({ x: px, y: py, e, parent: nd.parent });
+    });
+    ctx.strokeStyle = VIZ_COLORS.edge; ctx.lineWidth = 1.3;
+    appeared.forEach((a) => {
+      if (a.parent < 0) return;
+      const p = appeared[a.parent];
+      ctx.globalAlpha = a.e;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(a.x, a.y); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    appeared.forEach((a, i) => {
+      if (a.e <= 0.02) return;
+      ctx.globalAlpha = a.e;
+      const r = nodes[i].depth === 0 ? 8 : 6 - nodes[i].depth;
+      ctx.beginPath(); ctx.arc(a.x, a.y, Math.max(3, r), 0, Math.PI * 2);
+      ctx.fillStyle = VIZ_COLORS.node; ctx.fill();
+      ctx.lineWidth = 1.3; ctx.strokeStyle = VIZ_COLORS.nodeEdge; ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    inst.raf = requestAnimationFrame(frame);
+  }
+  inst.raf = requestAnimationFrame(frame);
+  activeViz.push(inst);
+}
+
+/* ---- ANNEAL: nodes jitter hard, then settle as T cools ---- */
+function vizAnneal(host) {
+  const { ctx, W, H } = makeCanvas(host);
+  vizCaption(host, "Iterative: high temperature = visible shaking (uphill moves allowed); as it cools, the layout settles.");
+  const { ids, edges } = randomGraph(9, 3);
+  const cx = W / 2, cy = H / 2, R = 70;
+  // a pleasant target (circle) the energy roughly favors
+  const target = {};
+  ids.forEach((id, i) => {
+    const th = (2 * Math.PI * i) / ids.length;
+    target[id] = [cx + R * Math.cos(th), cy + R * Math.sin(th)];
+  });
+  let pos = {};
+  function reset() { ids.forEach((id) => { pos[id] = [cx + (Math.random() - 0.5) * 180, cy + (Math.random() - 0.5) * 120]; }); }
+  reset();
+  const inst = { running: true, raf: null };
+  let T = 1.0, hold = 0;
+  function frame() {
+    if (!inst.running) return;
+    // one "sweep": nudge each node toward target but with T-scaled random jitter
+    ids.forEach((id) => {
+      const jitter = T * 26;
+      const pull = (1 - T) * 0.18;
+      pos[id][0] += (target[id][0] - pos[id][0]) * pull + (Math.random() - 0.5) * jitter;
+      pos[id][1] += (target[id][1] - pos[id][1]) * pull + (Math.random() - 0.5) * jitter;
+    });
+    T *= 0.97;
+    ctx.clearRect(0, 0, W, H);
+    drawEdges(ctx, edges, pos);
+    drawNodes(ctx, pos, 7);
+    // temperature bar
+    ctx.fillStyle = VIZ_COLORS.ghost;
+    ctx.fillRect(16, H - 18, 120, 5);
+    ctx.fillStyle = VIZ_COLORS.accent2;
+    ctx.fillRect(16, H - 18, 120 * T, 5);
+    ctx.fillStyle = VIZ_COLORS.text;
+    ctx.font = "11px monospace";
+    ctx.fillText("T = " + T.toFixed(2), 16, H - 24);
+    if (T < 0.03) { hold += 1; if (hold > 70) { T = 1.0; hold = 0; reset(); } }
+    inst.raf = requestAnimationFrame(frame);
+  }
+  inst.raf = requestAnimationFrame(frame);
+  activeViz.push(inst);
+}
+
+/* ---- FR: real force simulation, settles from random ---- */
+function vizFR(host) {
+  const { ctx, W, H } = makeCanvas(host);
+  vizCaption(host, "Live force simulation: nodes repel, edges pull like springs, temperature caps each step. This is the algorithm running.");
+  const { ids, edges } = randomGraph(11, 4);
+  const area = W * H;
+  const k = Math.sqrt(area / ids.length) * 0.55;
+  let pos = {}, vel = {};
+  function reset() {
+    ids.forEach((id) => {
+      pos[id] = [W / 2 + (Math.random() - 0.5) * 60, H / 2 + (Math.random() - 0.5) * 60];
+    });
+  }
+  reset();
+  const inst = { running: true, raf: null };
+  let t = W / 12, iter = 0;
+  function frame() {
+    if (!inst.running) return;
+    const disp = {};
+    ids.forEach((id) => { disp[id] = [0, 0]; });
+    // repulsion
+    for (let a = 0; a < ids.length; a++) {
+      for (let b = a + 1; b < ids.length; b++) {
+        const i = ids[a], j = ids[b];
+        let dx = pos[i][0] - pos[j][0], dy = pos[i][1] - pos[j][1];
+        let d = Math.hypot(dx, dy) || 0.01;
+        const f = (k * k) / d;
+        const ux = dx / d, uy = dy / d;
+        disp[i][0] += ux * f; disp[i][1] += uy * f;
+        disp[j][0] -= ux * f; disp[j][1] -= uy * f;
+      }
+    }
+    // attraction
+    edges.forEach(([i, j]) => {
+      let dx = pos[i][0] - pos[j][0], dy = pos[i][1] - pos[j][1];
+      let d = Math.hypot(dx, dy) || 0.01;
+      const f = (d * d) / k;
+      const ux = dx / d, uy = dy / d;
+      disp[i][0] -= ux * f; disp[i][1] -= uy * f;
+      disp[j][0] += ux * f; disp[j][1] += uy * f;
+    });
+    // move, capped by temperature, keep on-canvas
+    ids.forEach((id) => {
+      let dx = disp[id][0], dy = disp[id][1];
+      let d = Math.hypot(dx, dy) || 0.01;
+      pos[id][0] += (dx / d) * Math.min(d, t);
+      pos[id][1] += (dy / d) * Math.min(d, t);
+      pos[id][0] = Math.max(14, Math.min(W - 14, pos[id][0]));
+      pos[id][1] = Math.max(14, Math.min(H - 14, pos[id][1]));
+    });
+    t = Math.max(0.6, t * 0.985);
+    iter++;
+    ctx.clearRect(0, 0, W, H);
+    drawEdges(ctx, edges, pos);
+    drawNodes(ctx, pos, 7);
+    if (iter > 260) { t = W / 12; iter = 0; reset(); }
+    inst.raf = requestAnimationFrame(frame);
+  }
+  inst.raf = requestAnimationFrame(frame);
+  activeViz.push(inst);
+}
+
+const VIZ_REGISTRY = {
+  tree: vizTree, circular: vizCircular, fractal: vizFractal,
+  anneal: vizAnneal, fr: vizFR
+};
+
+function mountVisualizers(scope) {
+  scope.querySelectorAll(".viz[data-viz]").forEach((host) => {
+    const name = host.dataset.viz;
+    const fn = VIZ_REGISTRY[name];
+    if (fn) { host.innerHTML = ""; fn(host); }
+  });
+}
+
 function openLesson(i) {
+  stopVisualizers();
   state.current = i;
   const lesson = COURSE[i];
 
@@ -1128,6 +1603,7 @@ function openLesson(i) {
 
   show("lesson");
   highlightCode(els.lessonView);
+  mountVisualizers(els.lessonView);
   wireLesson(i);
   refreshNav();
 }
@@ -1251,6 +1727,7 @@ const REVIEW = [
 ];
 
 function openReview() {
+  stopVisualizers();
   state.current = -1;
   const quizzes = REVIEW.map((quiz, qi) => quizHTML(quiz, qi)).join("");
   els.reviewView.innerHTML =
